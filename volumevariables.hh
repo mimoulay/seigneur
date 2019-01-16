@@ -296,6 +296,7 @@ public:
 
             // etape 1 : calcul molefraction pour les composants 
             // secondaires dans la phase  liquid
+
             fluidState.setMoleFraction(wPhaseIdx, HIdx,   std::exp( priVars[HIdx] ) );
             fluidState.setMoleFraction(wPhaseIdx, AaqIdx,   std::exp( priVars[AaqIdx] ) );
             fluidState.setMoleFraction(wPhaseIdx, BaqIdx,   std::exp( priVars[BaqIdx] ) );
@@ -329,79 +330,17 @@ public:
             Scalar N2l = aN2l * 0.018 ; 
             fluidState.setMoleFraction(wPhaseIdx, nCompIdx, N2l);
 
+            // les minereaux 
+            fluidState.setMoleFraction(wPhaseIdx, AminIdx,   priVars[AminIdx]  );
+            fluidState.setMoleFraction(wPhaseIdx, ADminIdx,   priVars[ADminIdx]  );
+
+
             
         }
-        else if (phasePresence == nPhaseOnly)
-        {
-            Dune::FieldVector<Scalar, numComponents> moleFrac;
-
-            moleFrac[wCompIdx] =  priVars[switchIdx];
-            for (int compIdx=numMajorComponents; compIdx<numComponents; ++compIdx)
-            {
-                moleFrac[compIdx] = priVars[compIdx];
-            }
-
-            Scalar sumMoleFracOtherComponents = 0;
-            for (int compIdx=numMajorComponents; compIdx<numComponents; ++compIdx)
-            {
-                sumMoleFracOtherComponents+=moleFrac[compIdx];
-            }
-
-            sumMoleFracOtherComponents += moleFrac[wCompIdx];
-            moleFrac[nCompIdx] = 1 - sumMoleFracOtherComponents;
-
-            // Set fluid state mole fractions
-            for (int compIdx=0; compIdx<numComponents; ++compIdx)
-            {
-                fluidState.setMoleFraction(nPhaseIdx, compIdx, moleFrac[compIdx]);
-            }
-
-            // calculate the composition of the remaining phases (as
-            // well as the densities of all phases). this is the job
-            // of the "ComputeFromReferencePhase" constraint solver
-            ComputeFromReferencePhase::solve(fluidState,
-                                             paramCache,
-                                             nPhaseIdx,
-                                             /*setViscosity=*/true,
-                                             /*setEnthalpy=*/false);
-
-        }
-        else if (phasePresence == wPhaseOnly)
-        {
-            // only the wetting phase is present, i.e. wetting phase
-            // composition is stored explicitly.
-            // extract _mass_ fractions in the nonwetting phase
-            Dune::FieldVector<Scalar, numComponents> moleFrac;
-
-            for (int compIdx=numMajorComponents; compIdx<numComponents; ++compIdx)
-            {
-                moleFrac[compIdx] = priVars[compIdx];
-            }
-            moleFrac[nCompIdx] = priVars[switchIdx];
-            Scalar sumMoleFracNotWater = 0;
-            for (int compIdx=numMajorComponents; compIdx<numComponents; ++compIdx)
-            {
-                sumMoleFracNotWater+=moleFrac[compIdx];
-            }
-            sumMoleFracNotWater += moleFrac[nCompIdx];
-            moleFrac[wCompIdx] = 1 -sumMoleFracNotWater;
-
-
-            // convert mass to mole fractions and set the fluid state
-            for (int compIdx=0; compIdx<numComponents; ++compIdx)
-            {
-                fluidState.setMoleFraction(wPhaseIdx, compIdx, moleFrac[compIdx]);
-            }
-
-            // calculate the composition of the remaining phases (as
-            // well as the densities of all phases). this is the job
-            // of the "ComputeFromReferencePhase" constraint solver
-            ComputeFromReferencePhase::solve(fluidState,
-                                             paramCache,
-                                             wPhaseIdx,
-                                             /*setViscosity=*/true,
-                                             /*setEnthalpy=*/false);
-        }
+        else DUNE_THROW(Dune::InvalidStateException,
+                        "Formulation both phases " << formulation << " is invalid.");
+       
+       
         paramCache.updateAll(fluidState);
         for (int phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx)
         {

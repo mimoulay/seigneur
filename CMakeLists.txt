@@ -1,12 +1,2 @@
-
-#install headers
-install(FILES
-fluxvariables.hh
-indices.hh
-localresidual.hh
-model.hh
-newtoncontroller.hh
-properties.hh
-propertydefaults.hh
-volumevariables.hh
-DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dumux/porousmediumflow/2pnc/implicit)
+add_executable("seigneur" seigneur.cc)
+target_link_dune_default_libraries("seigneur")

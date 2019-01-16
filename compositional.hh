@@ -51,8 +51,6 @@ public:
     CompositionalFluidState()
     {
         // set the composition to 0
-        //std::cout<<"numcompphases = "<<numPhases<<std::endl;
-        //std::cout<<"numcomponents = "<<numComponents<<std::endl;
         for (int phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx)
         {
             for (int compIdx = 0; compIdx < numComponents; ++compIdx)

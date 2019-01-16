@@ -232,7 +232,7 @@ public:
             case N2Idx: return N2::name();
             case HIdx: return "H+";      
             case AaqIdx: return "Aaq";       
-            case Baqdx: return "Baq";   
+            case BaqIdx: return "Baq";   
             case CaqIdx: return "Caq";   
             case DIdx: return "D-";   
             case AminIdx: return "Amin";                              
@@ -247,20 +247,23 @@ public:
      *
      * \param compIdx The index of the component to consider
      */
-    static Scalar molarMass(int compIdx)
+    static Scalar molarMass(int compIdx) // KG PAR MOL
     {
         static const Scalar M[] = {
             18.0153e-3, // H2O::molarMass(),
             N2::molarMass(),
-            1.0078, // H+
-            100,   // Aaq
-            50,     // Baq
-            120,    // Caq
-            40,     // D-
+            1.0078e-3, // H+
+            100e-3,   // Aaq
+            50e-3,     // Baq
+            120e-3,    // Caq
+            40e-3,     // D-
             
         };
 
         assert(0 <= compIdx && compIdx < numComponents);
+        //std::cout<<"numcomponents = "<<numComponents<<std::endl;
+        //std::cout<<"N2 molar mass"<< N2::molarMass()<<std::endl;
+
         return M[compIdx];
     }
 
@@ -666,10 +669,7 @@ public:
             Scalar hN2 =
                 fluidState.massFraction(nPhaseIdx, N2Idx)
                 * N2::gasEnthalpy(T,p);
-            Scalar hO2 =
-                fluidState.massFraction(nPhaseIdx, O2Idx)
-                * O2::gasEnthalpy(T,p);
-            return hH2O + hN2 + hO2;
+            return hH2O + hN2;
         }
         else
             DUNE_THROW(Dune::InvalidStateException, "Invalid phase index " << phaseIdx);
@@ -714,13 +714,11 @@ public:
             if (useComplexRelations)
             {
                 Scalar xN2 = fluidState.moleFraction(phaseIdx, N2Idx);
-                Scalar xO2 = fluidState.moleFraction(phaseIdx, O2Idx);
                 Scalar xH2O = fluidState.moleFraction(phaseIdx, H2OIdx);
                 Scalar lambdaN2 = xN2 * lambdaPureN2;
-                Scalar lambdaO2 = xO2 * lambdaPureO2;
                 Scalar partialPressure  = pressure * xH2O;
                 Scalar lambdaH2O = xH2O * H2O::gasThermalConductivity(temperature, partialPressure);
-                return lambdaN2 + lambdaH2O + lambdaO2;
+                return lambdaN2 + lambdaH2O;
             }
             else
                 return lambdaPureN2;
@@ -745,44 +743,27 @@ public:
         }
 
         Scalar c_pN2;
-        Scalar c_pO2;
         Scalar c_pH2O;
         // let the water and nitrogen components do things their own way
-        if (useComplexRelations) {
-            c_pN2 = N2::gasHeatCapacity(fluidState.temperature(phaseIdx),
-                                        fluidState.pressure(phaseIdx)
-                                        * fluidState.moleFraction(phaseIdx, N2Idx));
 
-            c_pH2O = H2O::gasHeatCapacity(fluidState.temperature(phaseIdx),
-                                          fluidState.pressure(phaseIdx)
-                                          * fluidState.moleFraction(phaseIdx, H2OIdx));
-            c_pO2 = O2::gasHeatCapacity(fluidState.temperature(phaseIdx),
-                                          fluidState.pressure(phaseIdx)
-                                          * fluidState.moleFraction(phaseIdx, O2Idx));
-        }
-        else {
-            // assume an ideal gas for both components. See:
-            //
+        // assume an ideal gas for both components. See:
+        //
             //http://en.wikipedia.org/wiki/Heat_capacity
-            Scalar c_vN2molar = Constants::R*2.39;
-            Scalar c_pN2molar = Constants::R + c_vN2molar;
-
-            Scalar c_vO2molar = Constants::R*2.43;
-            Scalar c_pO2molar = Constants::R + c_vO2molar;
-
-            Scalar c_vH2Omolar = Constants::R*3.37; // <- correct??
-            Scalar c_pH2Omolar = Constants::R + c_vH2Omolar;
-
-            c_pN2 = c_pN2molar/molarMass(N2Idx);
-            c_pO2 = c_pO2molar/molarMass(O2Idx);
-            c_pH2O = c_pH2Omolar/molarMass(H2OIdx);
-        }
-
+        Scalar c_vN2molar = Constants::R*2.39;
+        Scalar c_pN2molar = Constants::R + c_vN2molar;
+        
+        
+        Scalar c_vH2Omolar = Constants::R*3.37; // <- correct??
+        Scalar c_pH2Omolar = Constants::R + c_vH2Omolar;
+        
+        c_pN2 = c_pN2molar/molarMass(N2Idx);
+        c_pH2O = c_pH2Omolar/molarMass(H2OIdx);
+        
+        
         // mangle all components together
         return
             c_pH2O*fluidState.massFraction(nPhaseIdx, H2OIdx)
-            + c_pN2*fluidState.massFraction(nPhaseIdx, N2Idx)
-            + c_pO2*fluidState.massFraction(nPhaseIdx, O2Idx);
+            + c_pN2*fluidState.massFraction(nPhaseIdx, N2Idx);
     }
 
 };

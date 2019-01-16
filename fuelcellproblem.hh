@@ -26,7 +26,7 @@
 
 #include <dumux/porousmediumflow/implicit/problem.hh>
 #include <dumux/material/constants.hh>
-#include <dumux/material/chemistry/electrochemistry/electrochemistry.hh>
+//#include <dumux/material/chemistry/electrochemistry/electrochemistry.hh>
 
 //#include <dumux/porousmediumflow/2pnc/implicit/model.hh>
 //#include <dumux/material/fluidsystems/h2on2o2.hh>
@@ -146,7 +146,7 @@ class FuelCellProblem : public ImplicitPorousMediaProblem<TypeTag>
     typedef Dune::FieldVector<Scalar, dimWorld> GlobalPosition;
 
     // Select the electrochemistry method
-    typedef Dumux::ElectroChemistry<TypeTag, ElectroChemistryModel::Ochs> ElectroChemistry;
+    //    typedef Dumux::ElectroChemistry<TypeTag, ElectroChemistryModel::Ochs> ElectroChemistry;
     typedef Constants<Scalar> Constant;
 
     enum { isBox = GET_PROP_VALUE(TypeTag, ImplicitIsBox) };
@@ -177,14 +177,33 @@ public:
     const std::string name() const
     { return name_; }
 
+
+
+    bool shouldWriteOutput() const
+    {
+        return     
+            (  (this->timeManager().timeStepIndex() == 0) ||
+               (this->timeManager().timeStepIndex() > 0)
+             );	
+    }
+
+  bool shouldWriteRestartFile() const
+  {
+    return 
+      (this->timeManager().timeStepIndex() >= 0
+       && (this->timeManager().timeStepIndex() % 1 == 0)) ||  this->timeManager().willBeFinished() ;
+  } 
+
+
+
     /*!
      * \brief Returns the temperature within the domain.
      *
      * This problem assumes a temperature of 10 degrees Celsius.
      */
     Scalar temperature() const
-    { return temperature_; }
-
+    { return 273.15 ; } // in [K]
+  
    
     void boundaryTypesAtPos(BoundaryTypes &values,
                             const GlobalPosition &globalPos) const
@@ -209,7 +228,6 @@ public:
     { priVars = 0; }
 
     
-   
     void initialAtPos(PrimaryVariables &values, const GlobalPosition &globalPos) const
     {
         initial_(values, globalPos);
@@ -237,31 +255,34 @@ private:
     void initial_(PrimaryVariables &values,
                   const GlobalPosition &globalPos) const
     {
-       Scalar x=globalPos[0];
         
-        if(x<2.0+eps_)
+        if( globalPos[0] <0.02+eps_)
             {
-                values[wPhaseIdx] =0.6;// 1e5/(997*9.81);
-                values[nPhaseIdx] =1e5;// 1e5/(997*9.81);
+                // Saturation liquid
+                values[switchIdx] =0.6;// 1e5/(997*9.81);
+                // Pression gaz
+                values[pressureIdx] =1e5;// 1e5/(997*9.81);
 
-                values[HIdx]= std::log(0.018*pow(10,-5)); //H+
+                values[HIdx]= std::log(pow(10,-5)*0.018); //H+
                 values[AaqIdx]=  std::log(1e-20); //Aaq
-                values[BaqIdx]= std::log(0.3*0.018); ; //Baq
+                values[BaqIdx]= std::log(0.3*0.018); //Baq
                 values[CaqIdx]=  std::log(1e-20);//Caq
-                values[DIdx]=   std::log(0.08211959342457908);//D-
+                values[DIdx]=   std::log(5*pow(10,-4)*0.018);//D-
 
                 values[AminIdx]=   0.;//Amin
                 values[ADminIdx]=  0.; //ADmin 
             }
-        else if (x>=2.0 && x<=52.0+ eps_)
+        else if (globalPos[0] >=0.02 && globalPos[0] <=0.52 + eps_)
             {
-                values[wPhaseIdx] =0.4;// 1e5/(997*9.81);;
-                values[nPhaseIdx] =1e5;// 1e5/(997*9.81);
+                // Saturation liquid
+                values[switchIdx] =0.4;// 1e5/(997*9.81);;
+                // Pression gaz
+                values[pressureIdx] =1e5;// 1e5/(997*9.81);
 
-                values[HIdx]= std::log(0.018*pow(10,-5)); //H+
+                values[HIdx]= std::log(pow(10,-7)*0.018); //H+
                 values[AaqIdx]=  std::log(0.1*0.018); //Aaq
-                values[BaqIdx]= std::log(1e-20); ; //Baq
-                values[CaqIdx]=  std::log(0.1);//Caq
+                values[BaqIdx]= std::log(1e-20);  //Baq
+                values[CaqIdx]=  std::log(0.1*0.018);//Caq
                 values[DIdx]=   std::log(1e-20);//D-
 
                 values[AminIdx]=   1600;//Amin  mol/m^3

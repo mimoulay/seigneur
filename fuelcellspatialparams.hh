@@ -118,13 +118,19 @@ public:
         // porosities
         porosity_ = 0.4;
 
-        // residual saturations
+    
+          // residual saturations
         materialParams_.setSwr(0.01); //here water, see philtophoblaw
         materialParams_.setSnr(0.01);
 
         //parameters for the vanGenuchten law
         materialParams_.setVgAlpha(1e-4); // alpha = 1/pcb
-        materialParams_.setVgn(0.481);
+        materialParams_.setVgm(0.481);
+    
+
+
+
+
     }
 
     ~FuelCellSpatialParams()

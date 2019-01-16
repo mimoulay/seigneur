@@ -133,7 +133,14 @@ class TwoPNCModel: public GET_PROP_TYPE(TypeTag, BaseModel)
     };
     enum {
             wCompIdx = FluidSystem::wCompIdx,
-            nCompIdx = FluidSystem::nCompIdx
+            nCompIdx = FluidSystem::nCompIdx,
+            HIdx=2,
+            AaqIdx=3,
+            BaqIdx=4,
+            CaqIdx=5,
+            DIdx=6,
+            AminIdx=7,
+            ADminIdx=8,
     };
     enum {
             wPhaseOnly = Indices::wPhaseOnly,
@@ -280,8 +287,14 @@ public:
         ScalarField *pn            = writer.allocateManagedBuffer (numDofs);
         ScalarField *pw            = writer.allocateManagedBuffer (numDofs);
         ScalarField *pc            = writer.allocateManagedBuffer (numDofs);
+
         ScalarField *rhoW          = writer.allocateManagedBuffer (numDofs);
         ScalarField *rhoN          = writer.allocateManagedBuffer (numDofs);
+
+        
+        ScalarField *mrhoW          = writer.allocateManagedBuffer (numDofs);
+        ScalarField *mrhoN          = writer.allocateManagedBuffer (numDofs);
+
         ScalarField *mobW          = writer.allocateManagedBuffer (numDofs);
         ScalarField *mobN          = writer.allocateManagedBuffer (numDofs);
         ScalarField *temperature   = writer.allocateManagedBuffer (numDofs);
@@ -291,24 +304,7 @@ public:
         VectorField *velocityW = writer.template allocateManagedBuffer<double, dim>(numDofs);
         ImplicitVelocityOutput<TypeTag> velocityOutput(this->problem_());
 
-        ScalarField &moleFractionH2O = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionN2l = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionN2g = *writer.allocateManagedBuffer(numDofs);
-
-
-
-        ScalarField &moleFractionH = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionAaq = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionBaq = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionCaq = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionD = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionAmin = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionBCmin = *writer.allocateManagedBuffer(numDofs);
-        ScalarField &moleFractionADmin = *writer.allocateManagedBuffer(numDofs);
-
-    
-
-
+   
 
         if (velocityOutput.enableOutput()) // check if velocity output is demanded
         {
@@ -358,32 +354,37 @@ public:
                 (*pn)[dofIdxGlobal]             = elemVolVars[scvIdx].pressure(nPhaseIdx);
                 (*pw)[dofIdxGlobal]             = elemVolVars[scvIdx].pressure(wPhaseIdx);
                 (*pc)[dofIdxGlobal]             = elemVolVars[scvIdx].capillaryPressure();
+
                 (*rhoW)[dofIdxGlobal]           = elemVolVars[scvIdx].density(wPhaseIdx);
+                (*mrhoW)[dofIdxGlobal]           = elemVolVars[scvIdx].molarDensity(wPhaseIdx);
                 (*rhoN)[dofIdxGlobal]           = elemVolVars[scvIdx].density(nPhaseIdx);
+                (*mrhoN)[dofIdxGlobal]           = elemVolVars[scvIdx].molarDensity(nPhaseIdx); 
+            
                 (*mobW)[dofIdxGlobal]           = elemVolVars[scvIdx].mobility(wPhaseIdx);
                 (*mobN)[dofIdxGlobal]           = elemVolVars[scvIdx].mobility(nPhaseIdx);
                 (*poro)[dofIdxGlobal]           = elemVolVars[scvIdx].porosity();
                 (*temperature)[dofIdxGlobal]    = elemVolVars[scvIdx].temperature();
                 (*phasePresence)[dofIdxGlobal]  = staticDat_[dofIdxGlobal].phasePresence;
 
-                /* ------------------------------------------------------------
                 for (int phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx)
                     for (int compIdx = 0; compIdx < numComponents; ++compIdx)
                         (*moleFraction[phaseIdx][compIdx])[dofIdxGlobal]= elemVolVars[scvIdx].moleFraction(phaseIdx,compIdx);
-                */
+                 
+                
+                (*moleFraction[wPhaseIdx][wCompIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,0)*55.508;                              
+                (*moleFraction[wPhaseIdx][nCompIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,1)*55.508;                
+                (*moleFraction[nPhaseIdx][nCompIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(1,1)*35.71;                
+    
+                (*moleFraction[wPhaseIdx][HIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,2)*55.508;
+                (*moleFraction[wPhaseIdx][AaqIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,3)*55.508;
+                (*moleFraction[wPhaseIdx][BaqIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,4)*55.508;
+                (*moleFraction[wPhaseIdx][CaqIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,5)*55.508;
+                (*moleFraction[wPhaseIdx][DIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,6)*55.508;
 
-                moleFractionH2O[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,0)*55.508;                              
-                moleFractionN2l[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,1)*55.508;                
-                moleFractionN2g[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(1,1)*55.508;                
 
-                moleFractionH[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,2)*55.508;
-                moleFractionAaq[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,3)*55.508;
-                moleFractionBaq[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,4)*55.508;
-                moleFractionCaq[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,5)*55.508;
-                moleFractionD[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,6)*55.508;
-                moleFractionAmin[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,7)/1000;
-                moleFractionBCmin[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,8)/1000;
-                moleFractionADmin[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,98)/1000;
+                // on a tout multiplier par 1000 au depart. 
+                (*moleFraction[wPhaseIdx][AminIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,7)/1000;
+                (*moleFraction[wPhaseIdx][ADminIdx])[dofIdxGlobal] = elemVolVars[scvIdx].moleFraction(0,8)/1000;
 
 
 
@@ -412,8 +413,14 @@ public:
         writer.attachDofData(*pn, "pn", isBox);
         writer.attachDofData(*pw, "pw", isBox);
         writer.attachDofData(*pc, "pc", isBox);
+
+
         writer.attachDofData(*rhoW, "rhoW", isBox);
         writer.attachDofData(*rhoN, "rhoN", isBox);
+        
+        writer.attachDofData(*mrhoW, "mrhoW", isBox);
+        writer.attachDofData(*mrhoN, "mrhoN", isBox);
+
         writer.attachDofData(*mobW, "mobW", isBox);
         writer.attachDofData(*mobN, "mobN", isBox);
         writer.attachDofData(*poro, "porosity", isBox);
