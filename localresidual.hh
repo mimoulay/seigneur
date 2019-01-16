@@ -468,21 +468,11 @@ public:
         const VolumeVariables &volVars = elemVolVars[scvIdx];
         
 
-        
-
-        //Major components :
-        Scalar H2O = volVars.moleFraction(wPhaseIdx,  wCompIdx);
-        Scalar N2l = volVars.moleFraction(wPhaseIdx,  nCompIdx);
-
-        Scalar N2g = volVars.moleFraction(nPhaseIdx,  nCompIdx);
 
         // Primary components
         // mole fraction components of aqeuous phase
       
-        Scalar H = volVars.moleFraction(wPhaseIdx, HIdx);
         Scalar Aaq = volVars.moleFraction(wPhaseIdx, AaqIdx);
-        Scalar Baq = volVars.moleFraction(wPhaseIdx, BaqIdx);
-        Scalar Caq = volVars.moleFraction(wPhaseIdx, CaqIdx);
         Scalar D = volVars.moleFraction(wPhaseIdx, DIdx);
 
         // Mineraux 
@@ -494,10 +484,7 @@ public:
         Scalar KADmin = pow(10,12); 
 
         // les activités des primaires
-        Scalar aH=H/0.018;
         Scalar aAaq=Aaq/0.018;
-        Scalar aBaq=Baq/0.018;
-        Scalar aCaq=Caq/0.018;
         Scalar aD=D/0.018;
         
         // loi d'action de masse des minereaux 

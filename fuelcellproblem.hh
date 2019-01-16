@@ -161,24 +161,8 @@ public:
     FuelCellProblem(TimeManager &timeManager, const GridView &gridView)
         : ParentType(timeManager, gridView)
     {
-        nTemperature_       = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, FluidSystem, NTemperature);
-        nPressure_          = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, FluidSystem, NPressure);
-        pressureLow_        = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, FluidSystem, PressureLow);
-        pressureHigh_       = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, FluidSystem, PressureHigh);
-        temperatureLow_     = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, FluidSystem, TemperatureLow);
-        temperatureHigh_    = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, FluidSystem, TemperatureHigh);
-        temperature_        = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, FluidSystem, InitialTemperature);
-
-        name_               = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, std::string, Problem, Name);
-
-        pO2Inlet_            = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, ElectroChemistry, pO2Inlet);
-
-        FluidSystem::init(/*Tmin=*/temperatureLow_,
-                          /*Tmax=*/temperatureHigh_,
-                          /*nT=*/nTemperature_,
-                          /*pmin=*/pressureLow_,
-                          /*pmax=*/pressureHigh_,
-                          /*np=*/nPressure_);
+        
+        FluidSystem::init( );
     }
 
     /*!
@@ -301,14 +285,10 @@ private:
     bool inReactionLayer_(const GlobalPosition& globalPos) const
     { return globalPos[1] < 0.1*(this->bBoxMax()[1] - this->bBoxMin()[1]) + eps_; }
 
-    Scalar temperature_;
     static constexpr Scalar eps_ = 1e-6;
-    int nTemperature_;
-    int nPressure_;
     std::string name_ ;
-    Scalar pressureLow_, pressureHigh_;
-    Scalar temperatureLow_, temperatureHigh_;
-    Scalar pO2Inlet_;
+    Scalar temperature_;
+
 };
 
 } //end namespace

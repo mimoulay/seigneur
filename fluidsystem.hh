@@ -252,7 +252,6 @@ public:
         static const Scalar M[] = {
             18.0153e-3, // H2O::molarMass(),
             N2::molarMass(),
-            //O2::molarMass()
             1.0078, // H+
             100,   // Aaq
             50,     // Baq

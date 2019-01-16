@@ -150,6 +150,17 @@ public:
         return 0;}
 
 
+    // initialVF_ 
+    const Scalar initialVF(const Element &element,
+                           const FVElementGeometry &fvGeometry,
+                                       const int scvIdx) const{
+        const GlobalPosition &globalPos = fvGeometry.subContVol[scvIdx].global;
+        // la presence de Amin dans la zone Rock fait que ca cause changement. 
+        if (globalPos[0] >=2.0 )
+            return   1.6*(0.068);  
+        else
+            return 0.;}
+
 
 
 
