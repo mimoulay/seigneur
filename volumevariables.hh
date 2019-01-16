@@ -29,9 +29,11 @@
 #include <vector>
 
 #include <dumux/implicit/model.hh>
-#include <dumux/material/fluidstates/compositional.hh>
+// #include <dumux/material/fluidstates/compositional.hh>
+
 #include <dumux/common/math.hh>
 
+#include "compositional.hh"
 #include "properties.hh"
 #include "indices.hh"
 #include <dumux/material/constraintsolvers/computefromreferencephase.hh>
@@ -94,7 +96,6 @@ class TwoPNCVolumeVariables : public ImplicitVolumeVariables<TypeTag>
         pressureIdx = Indices::pressureIdx,
         switchIdx = Indices::switchIdx,
 
-
         HIdx   = 2,//
         AaqIdx = 3,//
         BaqIdx = 4,//
@@ -109,6 +110,8 @@ class TwoPNCVolumeVariables : public ImplicitVolumeVariables<TypeTag>
     typedef typename Grid::ctype CoordScalar;
     typedef Dumux::Miscible2pNCComposition<Scalar, FluidSystem> Miscible2pNCComposition;
     typedef Dumux::ComputeFromReferencePhase<Scalar, FluidSystem> ComputeFromReferencePhase;
+    typedef Dune::FieldVector<Scalar,dimWorld> GlobalPosition;
+
 
     enum { isBox = GET_PROP_VALUE(TypeTag, ImplicitIsBox) };
     enum { dofCodim = isBox ? dim : 0 };
@@ -135,6 +138,30 @@ public:
                            isOldSol);
 
         completeFluidState(priVars, problem, element, fvGeometry, scvIdx, fluidState_, isOldSol);
+
+
+        // change
+        // Porosité initiale avant le changement 
+        initialporosity_ = problem.spatialParams().porosity(element, fvGeometry, scvIdx);
+        // volume flux initial 
+        initial_VF = problem.spatialParams().initialVF(element, fvGeometry, scvIdx);
+
+        
+        Scalar Conc_Amin=fluidState_.moleFraction(wPhaseIdx,AminIdx);
+        Scalar Conc_ADmin=fluidState_.moleFraction(wPhaseIdx,ADminIdx);
+        Scalar VF=Conc_Amin*0.068e-3 + Conc_ADmin*0.218e-3;
+
+        // Dispersivity
+        dispersivity_ = problem.spatialParams().dispersivity(element, fvGeometry, scvIdx);
+
+        // porosity
+        porosity_ = initialporosity_-(VF-initial_VF);
+        
+        Valgrind::CheckDefined(porosity_);
+
+        // Permeability factor
+        permeabilityFactor_  =(std::pow(porosity_,3)*std::pow(1-initialporosity_,2))/(std::pow(1-porosity_,2)*std::pow(initialporosity_,3));
+
 
         /////////////
         // calculate the remaining quantities
@@ -175,12 +202,7 @@ public:
             }
         }
 
-        // porosity
-        porosity_ = problem.spatialParams().porosity(element,
-                                                     fvGeometry,
-                                                     scvIdx);
-        Valgrind::CheckDefined(porosity_);
-        // energy related quantities not contained in the fluid state
+      
 
         asImp_().updateEnergy_(priVars, problem,element, fvGeometry, scvIdx, isOldSol);
     }
@@ -268,29 +290,46 @@ public:
         // now comes the tricky part: calculate phase composition
         if (phasePresence == bothPhases)
         {
-            // both phases are present, phase composition results from
-            // the nonwetting <-> wetting equilibrium. This is
-            // the job of the "MiscibleMultiPhaseComposition"
-            // constraint solver
 
-            // set the known mole fractions in the fluidState so that they
-            // can be used by the Miscible2pNCComposition constraint solver
-            unsigned int knownPhaseIdx = nPhaseIdx;
-            if (GET_PROP_VALUE(TypeTag, SetMoleFractionsForWettingPhase))
-            {
-                knownPhaseIdx = wPhaseIdx;
-            }
+            /* change : Pour le fluidestate on a 4 etapes : 
+             */ 
 
-            for (int compIdx=numMajorComponents; compIdx<numComponents; ++compIdx)
-            {
-                fluidState.setMoleFraction(knownPhaseIdx, compIdx, priVars[compIdx]);
-            }
+            // etape 1 : calcul molefraction pour les composants 
+            // secondaires dans la phase  liquid
+            fluidState.setMoleFraction(wPhaseIdx, HIdx,   std::exp( priVars[HIdx] ) );
+            fluidState.setMoleFraction(wPhaseIdx, AaqIdx,   std::exp( priVars[AaqIdx] ) );
+            fluidState.setMoleFraction(wPhaseIdx, BaqIdx,   std::exp( priVars[BaqIdx] ) );
+            fluidState.setMoleFraction(wPhaseIdx, CaqIdx,   std::exp( priVars[CaqIdx] ) );
+            fluidState.setMoleFraction(wPhaseIdx, DIdx,   std::exp( priVars[DIdx] ) );
 
-            Miscible2pNCComposition::solve(fluidState,
-                        paramCache,
-                        knownPhaseIdx,
-                        /*setViscosity=*/true,
-                        /*setEnthalpy=*/false);
+            // etape 2 : Calcul de xH2O liquid : 1- sum mole frac liquid
+            Scalar sumMolFracliquid_ =std::exp( priVars[HIdx] )
+                + std::exp( priVars[AaqIdx] )
+                + std::exp( priVars[BaqIdx] ) 
+                + std::exp( priVars[CaqIdx] )
+                + std::exp( priVars[DIdx] ) ;
+            fluidState.setMoleFraction(wPhaseIdx, wCompIdx, 1- sumMolFracliquid_);
+
+            // etape 3 : Calcul du xN2g = 1-Dg 
+            // On calcule d'abord Dg Reaction : Dg = D-   + H+  -  H2O
+            Scalar aD = std::exp( priVars[DIdx] )/0.018 ;
+            Scalar aH = std::exp( priVars[HIdx] )/0.018 ;
+            Scalar KDg = pow(10,5); // ou bien -5 ????
+            Scalar fDg = KDg * aD * aH ;  // fugacity du gaz Dg
+            Scalar Dg = fDg / priVars[nPhaseIdx] ; // Loi d'henry xDg* Pg= f*Dg
+            // N2g = 1-Dg
+            fluidState.setMoleFraction(nPhaseIdx, nCompIdx, 1- Dg);
+
+            // etape 4 : Calcul du xN2l par l'équilibre des phases. 
+            // aN2l = fugacity_N2g equilibre des phases :
+            // Pour un gaz parfait fugacity = pression partielle
+            Scalar xN2g = 1-Dg ; 
+            // aN2l = xN2g*Pg
+            Scalar aN2l = xN2g *  priVars[nPhaseIdx] ; 
+            Scalar N2l = aN2l * 0.018 ; 
+            fluidState.setMoleFraction(wPhaseIdx, nCompIdx, N2l);
+
+            
         }
         else if (phasePresence == nPhaseOnly)
         {
@@ -475,6 +514,11 @@ public:
      Scalar massFraction(int phaseIdx, int compIdx) const
      { return this->fluidState_.massFraction(phaseIdx, compIdx); }
 
+    // change 
+    const GlobalPosition &dispersivity() const
+    { return dispersivity_; }
+
+
      /*!
       * \brief Returns the mole fraction of a component in the phase
       *
@@ -484,6 +528,11 @@ public:
      Scalar moleFraction(int phaseIdx, int compIdx) const
      { return this->fluidState_.moleFraction(phaseIdx, compIdx); }
 
+
+    Scalar permeabilityFactor() const
+    { return permeabilityFactor_; }
+    
+    
 protected:
     static Scalar temperature_(const PrimaryVariables &priVars,
                                const Problem& problem,
@@ -518,9 +567,18 @@ protected:
     Scalar density_;
     FluidState fluidState_;
     Scalar theta_;
-    Scalar InitialPorosity_;
     Scalar molWtPhase_[numPhases];
     Dune::FieldMatrix<Scalar, numPhases, numComponents> diffCoeff_;
+
+
+    Scalar permeabilityFactor_;
+    Scalar initialporosity_;
+    Scalar initialpermeability_;
+    Scalar dispersivity_ ;
+    
+    Scalar initial_VF;
+    Scalar VF;
+
 
 private:
     Implementation &asImp_()
